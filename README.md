@@ -63,7 +63,11 @@ This dashboard provides a comprehensive interface for network administrators to:
    ```
    npm run dev
    ```
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
+4. Setup .env (it's hardcoded to follow https://localhost:8000) https://github.com/MadsZBC/VyOS-Dashboard-Backend
+NEXT_PUBLIC_API_KEY=apikey-from-backend
+
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
+
 
 ## Development
 
