@@ -70,10 +70,20 @@ interface IPv4Firewall {
   name?: Record<string, NamedFirewall>;
 }
 
+interface StatePolicy {
+  action: string;
+  [key: string]: any;
+}
+
+interface GlobalOptions {
+  "state-policy"?: Record<string, StatePolicy>;
+  [key: string]: any;
+}
+
 interface FirewallProps {
   firewall: {
     ipv4: IPv4Firewall;
-    "global-options"?: any;
+    "global-options"?: GlobalOptions;
     group?: FirewallGroup;
   };
 }
@@ -306,37 +316,41 @@ export default function FirewallRules({ firewall }: FirewallProps) {
                   <CardDescription>Default policies for connection states</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Connection State</TableHead>
-                        <TableHead>Action</TableHead>
-                        <TableHead>Description</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {Object.entries(firewall["global-options"]["state-policy"]).map(([state, config]) => (
-                        <TableRow key={state}>
-                          <TableCell className="font-medium capitalize">{state}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {config.action === "accept" ? (
-                                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                              ) : (
-                                <AlertTriangle className="h-4 w-4 text-red-500" />
-                              )}
-                              <span className="capitalize">{config.action}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {state === "established" && "Traffic that is part of an established connection"}
-                            {state === "related" && "Traffic related to an established connection"}
-                            {state === "invalid" && "Traffic that does not match connection tracking"}
-                          </TableCell>
+                  {firewall["global-options"] && firewall["global-options"]["state-policy"] ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Connection State</TableHead>
+                          <TableHead>Action</TableHead>
+                          <TableHead>Description</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {Object.entries(firewall["global-options"]["state-policy"]).map(([state, config]) => (
+                          <TableRow key={state}>
+                            <TableCell className="font-medium capitalize">{state}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {config.action === "accept" ? (
+                                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                                )}
+                                <span className="capitalize">{config.action}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {state === "established" && "Traffic that is part of an established connection"}
+                              {state === "related" && "Traffic related to an established connection"}
+                              {state === "invalid" && "Traffic that does not match connection tracking"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">No global state policies defined</div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -353,47 +367,71 @@ export default function FirewallRules({ firewall }: FirewallProps) {
           <CardDescription>Network and interface groups used in firewall rules</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Group Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Members</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {Object.entries(firewall.group["interface-group"] || {}).map(([name, config]) => (
-                <TableRow key={name}>
-                  <TableCell className="font-medium">{name}</TableCell>
-                  <TableCell>Interface Group</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {config.interface?.map((intf: string, i: number) => (
-                        <Badge key={i} variant="outline">
-                          {intf}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
+          {firewall.group ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Group Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Members</TableHead>
                 </TableRow>
-              ))}
-              {Object.entries(firewall.group["network-group"] || {}).map(([name, config]) => (
-                <TableRow key={name}>
-                  <TableCell className="font-medium">{name}</TableCell>
-                  <TableCell>Network Group</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {config.network?.map((net: string, i: number) => (
-                        <Badge key={i} variant="outline">
-                          {net}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {Object.entries(firewall.group["interface-group"] || {}).map(([name, config]) => (
+                  <TableRow key={name}>
+                    <TableCell className="font-medium">{name}</TableCell>
+                    <TableCell>Interface Group</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {Array.isArray(config.interface) && config.interface.length > 0 ? (
+                          config.interface.map((intf: string, i: number) => (
+                            <Badge key={i} variant="outline">
+                              {intf}
+                            </Badge>
+                          ))
+                        ) : (
+                          config.interface ? (
+                            <Badge variant="outline">
+                              {config.interface}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">No interfaces</span>
+                          )
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {Object.entries(firewall.group["network-group"] || {}).map(([name, config]) => (
+                  <TableRow key={name}>
+                    <TableCell className="font-medium">{name}</TableCell>
+                    <TableCell>Network Group</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {Array.isArray(config.network) && config.network.length > 0 ? (
+                          config.network.map((net: string, i: number) => (
+                            <Badge key={i} variant="outline">
+                              {net}
+                            </Badge>
+                          ))
+                        ) : (
+                          config.network ? (
+                            <Badge variant="outline">
+                              {config.network}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">No networks</span>
+                          )
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-sm text-muted-foreground">No firewall groups defined</div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -1,10 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Server, Database, Clock, Wifi, RefreshCw, Users } from "lucide-react"
+import { Server, Database, Clock, Wifi, RefreshCw, Users, Globe, Terminal, Settings } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { getDhcpConfig } from "@/lib/api"
+import { getVyOSDhcpLeases } from "@/lib/api"
 import { useToast } from "@/components/ui/use-toast"
 import { useState, useEffect } from "react"
 import IPAddressMap from "./ip-address-map"
@@ -61,6 +61,10 @@ interface DHCPLease {
   hostname: string;
   expiry: string;
   state: string;
+  remaining: string;
+  pool: string;
+  leaseStart: string;
+  origin: string;
 }
 
 interface DHCPLeases {
@@ -94,7 +98,11 @@ const extractLeasesFromStatus = (dhcpData: any) => {
           mac: leaseData.mac || 'Unknown',
           hostname: leaseData.hostname || 'Unknown',
           expiry: leaseData.expiry || new Date().toISOString(),
-          state: leaseData.state || 'active'
+          state: leaseData.state || 'active',
+          remaining: leaseData.remaining || 'Unknown',
+          pool: leaseData.pool || 'Unknown',
+          leaseStart: leaseData.leaseStart || 'Unknown',
+          origin: leaseData.origin || 'Unknown'
         });
       });
       
@@ -163,7 +171,7 @@ export default function Services({ services, dhcpLeases: initialDhcpLeases }: Se
 
     setLeasesLoading(true);
     try {
-      const response = await getDhcpConfig(connectionParams);
+      const response = await getVyOSDhcpLeases(connectionParams);
       console.log("DHCP leases response:", response);
       
       if (response.success && response.data) {
@@ -249,306 +257,88 @@ export default function Services({ services, dhcpLeases: initialDhcpLeases }: Se
         <TabsList className="grid grid-cols-5">
           <TabsTrigger value="dhcp" className="flex items-center gap-2">
             <Database className="h-4 w-4" />
-            <span className="hidden sm:inline-flex">DHCP</span>
-          </TabsTrigger>
-          <TabsTrigger value="leases" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline-flex">Leases</span>
+            <span>DHCP Server</span>
           </TabsTrigger>
           <TabsTrigger value="dns" className="flex items-center gap-2">
-            <Wifi className="h-4 w-4" />
-            <span className="hidden sm:inline-flex">DNS</span>
+            <Globe className="h-4 w-4" />
+            <span>DNS</span>
+          </TabsTrigger>
+          <TabsTrigger value="ssh" className="flex items-center gap-2">
+            <Terminal className="h-4 w-4" />
+            <span>SSH</span>
           </TabsTrigger>
           <TabsTrigger value="ntp" className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
-            <span className="hidden sm:inline-flex">NTP</span>
+            <span>NTP</span>
           </TabsTrigger>
-          <TabsTrigger value="ssh" className="flex items-center gap-2">
-            <Server className="h-4 w-4" />
-            <span className="hidden sm:inline-flex">SSH</span>
+          <TabsTrigger value="other" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            <span>Other</span>
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="dhcp" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                DHCP Server
-              </CardTitle>
-              <CardDescription>Dynamic Host Configuration Protocol server settings</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {services["dhcp-server"] ? (
-                <div className="space-y-6">
-                  {services["dhcp-server"]["shared-network-name"] && 
-                    Object.entries(services["dhcp-server"]["shared-network-name"]).map(
-                    ([networkName, networkConfig]) => (
-                      <div key={networkName} className="space-y-4">
-                        <div>
-                          <h3 className="text-lg font-medium">{networkName} Network</h3>
-                        </div>
-
-                        {Object.entries(networkConfig.subnet).map(([subnet, subnetConfig]) => (
-                          <div key={subnet} className="border rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-4">
-                              <h4 className="font-medium">Subnet: {subnet}</h4>
-                              <Badge>Active</Badge>
-                            </div>
-
-                            <Table>
-                              <TableBody>
-                                <TableRow>
-                                  <TableCell className="font-medium">Default Router</TableCell>
-                                  <TableCell>{subnetConfig["default-router"]}</TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell className="font-medium">Domain Name</TableCell>
-                                  <TableCell>{subnetConfig["domain-name"]}</TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell className="font-medium">Lease Time</TableCell>
-                                  <TableCell>{subnetConfig.lease} seconds</TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell className="font-medium">Name Servers</TableCell>
-                                  <TableCell>
-                                    <div className="flex flex-wrap gap-1">
-                                      {subnetConfig["name-server"]?.map((server: string, i: number) => (
-                                        <Badge key={i} variant="outline">
-                                          {server}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell className="font-medium">IP Range</TableCell>
-                                  <TableCell>
-                                    {subnetConfig.range && Object.entries(subnetConfig.range).map(([rangeId, range]) => (
-                                      <div key={rangeId} className="flex items-center gap-2">
-                                        <span>{range.start}</span>
-                                        <span>-</span>
-                                        <span>{range.stop}</span>
-                                      </div>
-                                    ))}
-                                  </TableCell>
-                                </TableRow>
-                              </TableBody>
-                            </Table>
-                            
-                            {/* Add IP Address Map visualization */}
-                            <div className="mt-4">
-                              <h5 className="text-sm font-medium mb-2">IP Address Visualization</h5>
-                              <IPAddressMap 
-                                subnet={subnet}
-                                dhcpRange={
-                                  subnetConfig.range && Object.values(subnetConfig.range)[0] 
-                                    ? {
-                                        start: Object.values(subnetConfig.range)[0].start || "",
-                                        stop: Object.values(subnetConfig.range)[0].stop || ""
-                                      } 
-                                    : undefined
-                                }
-                                leases={dhcpLeases?.leases?.[networkName] || []}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ),
-                  )}
-                </div>
-              ) : (
-                <div className="text-center text-muted-foreground py-4">DHCP server is not configured</div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="leases" className="mt-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  DHCP Leases
-                </CardTitle>
-                <CardDescription>Active DHCP leases on the network</CardDescription>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={fetchDhcpLeases}
-                disabled={leasesLoading || !connectionParams}
-                className="flex items-center gap-2"
-              >
-                {leasesLoading ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    <span>Loading...</span>
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4" />
+        
+        <TabsContent value="dhcp">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card className="col-span-2">
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>DHCP Leases</CardTitle>
+                    <CardDescription>Currently active DHCP leases</CardDescription>
+                  </div>
+                  <Button 
+                    onClick={fetchDhcpLeases} 
+                    size="sm" 
+                    className="flex items-center gap-2"
+                    disabled={leasesLoading}
+                  >
+                    <RefreshCw className={`h-4 w-4 ${leasesLoading ? 'animate-spin' : ''}`} />
                     <span>Refresh</span>
-                  </>
-                )}
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {!dhcpLeases && !leasesLoading ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No DHCP lease data available.</p>
-                  <p className="text-sm mt-2">Click the Refresh button to fetch lease information.</p>
+                  </Button>
                 </div>
-              ) : leasesLoading ? (
-                <div className="flex justify-center items-center py-12">
-                  <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* First, check if we have any structured leases data */}
-                  {dhcpLeases?.leases && Object.keys(dhcpLeases.leases).length > 0 ? (
-                    <>
-                      {/* Find the shared network names from DHCP server config */}
-                      {services["dhcp-server"] && (
-                        Object.entries(services["dhcp-server"]["shared-network-name"] || {}).map(
-                          ([networkName, _networkConfig]) => {
-                            // Check if we have leases for this network
-                            const networkLeases = dhcpLeases?.leases?.[networkName] || [];
-                            
-                            return (
-                              <div key={networkName} className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                  <h3 className="text-lg font-medium">{networkName} Network</h3>
-                                  <Badge variant={networkLeases.length > 0 ? "default" : "outline"}>
-                                    {networkLeases.length} Leases
-                                  </Badge>
-                                </div>
-                                
-                                {networkLeases.length > 0 ? (
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead>IP Address</TableHead>
-                                        <TableHead>MAC Address</TableHead>
-                                        <TableHead>Hostname</TableHead>
-                                        <TableHead>Expiry</TableHead>
-                                        <TableHead>Time Left</TableHead>
-                                        <TableHead>State</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {networkLeases.map((lease, index) => (
-                                        <TableRow key={`${lease.ip}-${index}`}>
-                                          <TableCell className="font-medium">{lease.ip}</TableCell>
-                                          <TableCell>{lease.mac}</TableCell>
-                                          <TableCell>{lease.hostname || "Unknown"}</TableCell>
-                                          <TableCell>{new Date(lease.expiry).toLocaleString()}</TableCell>
-                                          <TableCell>{getTimeRemaining(lease.expiry)}</TableCell>
-                                          <TableCell>
-                                            <Badge variant={lease.state === "active" ? "default" : "outline"}>
-                                              {lease.state}
-                                            </Badge>
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                ) : (
-                                  <div className="text-center py-4 border rounded-md text-muted-foreground">
-                                    No active leases for this network
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          }
-                        )
-                      )}
-                      
-                      {/* If there are leases that don't match any configured network */}
-                      {dhcpLeases.leases && Object.entries(dhcpLeases.leases)
-                        .filter(([networkName, _]) => 
-                          !services["dhcp-server"] || 
-                          !services["dhcp-server"]["shared-network-name"] ||
-                          !services["dhcp-server"]["shared-network-name"][networkName]
-                        )
-                        .map(([networkName, leases]) => (
-                          <div key={networkName} className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <h3 className="text-lg font-medium">{networkName} Network</h3>
-                              <Badge variant="secondary">
-                                {leases.length} Leases (Unconfigured Network)
+              </CardHeader>
+              <CardContent>
+                {dhcpLeases?.leases && Object.keys(dhcpLeases.leases).length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>IP Address</TableHead>
+                        <TableHead>MAC Address</TableHead>
+                        <TableHead>Hostname</TableHead>
+                        <TableHead>State</TableHead>
+                        <TableHead>Remaining</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {Object.entries(dhcpLeases.leases).flatMap(([network, leases]) =>
+                        leases.map((lease, i) => (
+                          <TableRow key={`${network}-${lease.ip || i}`}>
+                            <TableCell className="font-medium">{lease.ip}</TableCell>
+                            <TableCell>{lease.mac}</TableCell>
+                            <TableCell>{lease.hostname}</TableCell>
+                            <TableCell>
+                              <Badge variant={lease.state === 'active' ? 'default' : 'secondary'}>
+                                {lease.state}
                               </Badge>
-                            </div>
-                            
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>IP Address</TableHead>
-                                  <TableHead>MAC Address</TableHead>
-                                  <TableHead>Hostname</TableHead>
-                                  <TableHead>Expiry</TableHead>
-                                  <TableHead>Time Left</TableHead>
-                                  <TableHead>State</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {leases.map((lease, index) => (
-                                  <TableRow key={`${lease.ip}-${index}`}>
-                                    <TableCell className="font-medium">{lease.ip}</TableCell>
-                                    <TableCell>{lease.mac}</TableCell>
-                                    <TableCell>{lease.hostname || "Unknown"}</TableCell>
-                                    <TableCell>{new Date(lease.expiry).toLocaleString()}</TableCell>
-                                    <TableCell>{getTimeRemaining(lease.expiry)}</TableCell>
-                                    <TableCell>
-                                      <Badge variant={lease.state === "active" ? "default" : "outline"}>
-                                        {lease.state}
-                                      </Badge>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        ))}
-                    </>
-                  ) : (
-                    // If we don't have structured leases data, try to display raw DHCP status
-                    <div className="space-y-6">
-                      <div className="text-center py-4 border rounded-md bg-muted/10">
-                        <p className="text-muted-foreground">DHCP data received, but no active leases found.</p>
-                        <p className="text-xs mt-1">Try refreshing if you believe there should be active leases.</p>
-                      </div>
-                      
-                      {/* Display raw DHCP configuration if available, for debugging */}
-                      {dhcpLeases?.dhcp_config && (
-                        <div className="space-y-4 mt-8">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-medium">DHCP Configuration</h3>
-                            <Badge variant="outline">
-                              Status: Active
-                            </Badge>
-                          </div>
-                          
-                          {/* Display a summary of the DHCP configuration */}
-                          <div className="border rounded-lg p-4">
-                            <div className="text-sm font-medium mb-2">Configured Networks:</div>
-                            {dhcpLeases.dhcp_config["shared-network-name"] && 
-                              Object.keys(dhcpLeases.dhcp_config["shared-network-name"]).map(name => (
-                                <Badge key={name} className="mr-2 mb-2">{name}</Badge>
-                              ))
-                            }
-                          </div>
-                        </div>
+                            </TableCell>
+                            <TableCell>{lease.remaining || 'Unknown'}</TableCell>
+                          </TableRow>
+                        ))
                       )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-6">
+                    <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium">No active DHCP leases</h3>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      There are currently no devices with active DHCP leases on your network.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="dns" className="mt-4">
@@ -568,11 +358,21 @@ export default function Services({ services, dhcpLeases: initialDhcpLeases }: Se
                       <TableCell className="font-medium">Listen Addresses</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {services.dns.forwarding["listen-address"]?.map((addr, i) => (
-                            <Badge key={i} variant="outline">
-                              {addr}
-                            </Badge>
-                          ))}
+                          {Array.isArray(services.dns.forwarding["listen-address"]) && services.dns.forwarding["listen-address"].length > 0 ? (
+                            services.dns.forwarding["listen-address"].map((addr, i) => (
+                              <Badge key={i} variant="outline">
+                                {addr}
+                              </Badge>
+                            ))
+                          ) : (
+                            services.dns.forwarding["listen-address"] ? (
+                              <Badge variant="outline">
+                                {services.dns.forwarding["listen-address"]}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">None specified</span>
+                            )
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -580,11 +380,21 @@ export default function Services({ services, dhcpLeases: initialDhcpLeases }: Se
                       <TableCell className="font-medium">Allow From</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {services.dns.forwarding["allow-from"]?.map((network, i) => (
-                            <Badge key={i} variant="outline">
-                              {network}
-                            </Badge>
-                          ))}
+                          {Array.isArray(services.dns.forwarding["allow-from"]) && services.dns.forwarding["allow-from"].length > 0 ? (
+                            services.dns.forwarding["allow-from"].map((network, i) => (
+                              <Badge key={i} variant="outline">
+                                {network}
+                              </Badge>
+                            ))
+                          ) : (
+                            services.dns.forwarding["allow-from"] ? (
+                              <Badge variant="outline">
+                                {services.dns.forwarding["allow-from"]}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">None specified</span>
+                            )
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -596,6 +406,64 @@ export default function Services({ services, dhcpLeases: initialDhcpLeases }: Se
                 </Table>
               ) : (
                 <div className="text-center text-muted-foreground py-4">DNS forwarding is not configured</div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="ssh" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Server className="h-5 w-5" />
+                SSH Service
+              </CardTitle>
+              <CardDescription>Secure Shell service configuration</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {services.ssh ? (
+                <Table>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="font-medium">Port</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {Array.isArray(services.ssh.port) && services.ssh.port.length > 0 ? (
+                            services.ssh.port.map((port, i) => (
+                              <Badge key={i} variant="outline">
+                                {port}
+                              </Badge>
+                            ))
+                          ) : (
+                            services.ssh.port ? (
+                              <Badge variant="outline">
+                                {services.ssh.port}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">Default (22)</span>
+                            )
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Client Keepalive Interval</TableCell>
+                      <TableCell>{services.ssh["client-keepalive-interval"] || "Default"} seconds</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Password Authentication</TableCell>
+                      <TableCell>
+                        {services.ssh["disable-password-authentication"] ? (
+                          <Badge variant="destructive">Disabled</Badge>
+                        ) : (
+                          <Badge variant="default">Enabled</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center text-muted-foreground py-4">SSH service is not configured</div>
               )}
             </CardContent>
           </Card>
@@ -641,13 +509,21 @@ export default function Services({ services, dhcpLeases: initialDhcpLeases }: Se
                         <TableRow>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
-                              {services.ntp["allow-client"] && services.ntp["allow-client"].address && 
-                                services.ntp["allow-client"].address.map((addr: string, i: number) => (
-                                  <Badge key={i} variant="outline">
-                                    {addr}
+                              {services.ntp["allow-client"] && services.ntp["allow-client"].address ? (
+                                Array.isArray(services.ntp["allow-client"].address) && services.ntp["allow-client"].address.length > 0 ? (
+                                  services.ntp["allow-client"].address.map((addr: string, i: number) => (
+                                    <Badge key={i} variant="outline">
+                                      {addr}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <Badge variant="outline">
+                                    {services.ntp["allow-client"].address}
                                   </Badge>
-                                ))
-                              }
+                                )
+                              ) : (
+                                <span className="text-muted-foreground">None specified</span>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -662,52 +538,8 @@ export default function Services({ services, dhcpLeases: initialDhcpLeases }: Se
           </Card>
         </TabsContent>
 
-        <TabsContent value="ssh" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Server className="h-5 w-5" />
-                SSH Service
-              </CardTitle>
-              <CardDescription>Secure Shell service configuration</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {services.ssh ? (
-                <Table>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell className="font-medium">Port</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {services.ssh.port?.map((port, i) => (
-                            <Badge key={i} variant="outline">
-                              {port}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Client Keepalive Interval</TableCell>
-                      <TableCell>{services.ssh["client-keepalive-interval"] || "Default"} seconds</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Password Authentication</TableCell>
-                      <TableCell>
-                        {services.ssh["disable-password-authentication"] ? (
-                          <Badge variant="destructive">Disabled</Badge>
-                        ) : (
-                          <Badge variant="default">Enabled</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="text-center text-muted-foreground py-4">SSH service is not configured</div>
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="other" className="mt-4">
+          {/* Add other content here */}
         </TabsContent>
       </Tabs>
     </div>

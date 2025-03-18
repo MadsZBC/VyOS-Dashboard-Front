@@ -1,81 +1,84 @@
-# Network Configuration Dashboard
+# VyOS Network Manager
 
-A Next.js application for managing and visualizing network configurations, router connections, and system information.
+A Next.js web application for managing VyOS routers via their HTTP API.
 
-## Overview
-
-This dashboard provides a comprehensive interface for network administrators to:
-
-- Monitor and control router connections
-- Visualize IP address mappings
-- Configure firewall rules
-- Manage NAT rules
-- View system information
-- Configure network interfaces
-- Manage services
-
-## Tech Stack
-
-- **Framework**: Next.js
-- **UI Components**: Custom UI components (located in `/components/ui`)
-- **Styling**: Tailwind CSS (inferred from class names)
-- **Icons**: Lucide React
-
-## Project Structure
-
-```
-/app
-├── api/          # API routes
-├── globals.css   # Global styles
-├── layout.tsx    # Root layout component
-└── page.tsx      # Main application page
-
-/components
-├── ui/           # Reusable UI components
-├── firewall-rules.tsx     # Firewall rules management
-├── ip-address-map.tsx     # IP address visualization
-├── nat-rules.tsx          # NAT configuration
-├── network-interfaces.tsx # Network interfaces management
-├── router-connection.tsx  # Router connection handling
-├── services.tsx           # Services management
-├── system-info.tsx        # System information display
-└── theme-provider.tsx     # Theme context provider
-```
+![VyOS Network Manager Screenshot](docs/screenshot.png)
 
 ## Features
 
-- **Router Connection**: Establish and manage connections to network routers
-- **System Information**: View and modify system configuration
-- **Firewall Management**: Create and edit firewall rules
-- **NAT Rules**: Configure network address translation
-- **Network Interfaces**: Monitor and configure network interfaces
-- **IP Address Mapping**: Visualize IP address allocations
-- **Services Management**: Control and monitor network services
+- Connect to VyOS routers via secure API
+- View and configure interfaces
+- Manage DHCP server configurations and view active leases
+- Support for both HTTP and HTTPS connections
+- Support for self-signed certificates
+- Visualize network components
 
 ## Getting Started
 
-1. Clone the repository
-2. Install dependencies:
-   ```
-   npm install
-   ```
-3. Run the development server:
-   ```
-   npm run dev
-   ```
-4. Setup .env (it's hardcoded to follow https://localhost:8000) https://github.com/MadsZBC/VyOS-Dashboard-Backend
-NEXT_PUBLIC_API_KEY=apikey-from-backend
+### Prerequisites
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
+- Node.js 16.x or later
+- VyOS router with API enabled
 
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/vyos-network-manager.git
+cd vyos-network-manager
+
+# Install dependencies
+npm install
+
+# Start the development server
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Connecting to VyOS
+
+Before connecting to your VyOS router, you need to:
+
+1. Enable the HTTP API on your VyOS router:
+
+```
+set service https api
+commit
+save
+```
+
+2. Generate an API key:
+
+```
+generate auth api-key id my-app-key
+```
+
+3. Enter your router's address and API key in the connection form.
+
+4. If your VyOS router uses a self-signed certificate (common in testing environments), you may need to enable the "Allow Self-Signed Certificate" option when connecting.
+
+## Self-Signed Certificate Support
+
+The application includes built-in support for connecting to VyOS routers with self-signed SSL certificates.
+
+When using the "Allow Self-Signed Certificate" option:
+
+1. The connection will bypass certificate validation for the specified host only
+2. This is handled securely in the server-side proxy to prevent CORS issues
+3. The setting only applies to the current connection and is not permanently stored
+
+**Note:** While this feature enables connections to test environments, for production use, it's recommended to properly configure trusted certificates on your VyOS routers.
 
 ## Development
 
-This application is built with Next.js and leverages modern React patterns including:
-- Client-side components
-- Server components
-- React hooks and contexts
+The application architecture consists of:
 
-## Security Considerations
+- Next.js frontend with React components
+- API proxy for handling HTTPS connections and self-signed certificates
+- TypeScript for type safety
+- shadcn/ui for the UI components
 
-This application manages sensitive network configurations. Ensure proper authentication and authorization mechanisms are in place before deploying to production environments. 
+## License
+
+MIT 

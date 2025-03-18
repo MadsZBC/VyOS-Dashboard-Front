@@ -1,20 +1,35 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { ThemeProvider } from "@/components/theme-provider"
+import { DebugStoreProvider } from "@/app/lib/debug-store"
+import { ConnectionStoreProvider } from "@/app/lib/connection-store"
+import { Toaster } from "@/components/ui/toaster"
+
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.dev',
+  title: "VyOS Dashboard",
+  description: "A modern dashboard for VyOS routers",
 }
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={inter.className}>
+        <DebugStoreProvider>
+          <ConnectionStoreProvider>
+            <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+              {children}
+              <Toaster />
+            </ThemeProvider>
+          </ConnectionStoreProvider>
+        </DebugStoreProvider>
+      </body>
     </html>
   )
 }
